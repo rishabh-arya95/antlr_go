@@ -22,6 +22,23 @@ type CodeFunction struct {
 	ReturnType string
 	Modifiers  []string
 	Position   CodePosition
+	Parameters []CodeProperty
+}
+
+type CodeProperty struct {
+	// Modifiers   []string
+	ParamName string
+	TypeValue string
+	TypeType  string
+	// ReturnTypes []CodeProperty
+	// Parameters  []CodeProperty
+}
+
+func NewCodeParameter(typeType string, typeValue string) CodeProperty {
+	return CodeProperty{
+		TypeValue: typeValue,
+		TypeType:  typeType,
+	}
 }
 
 type TreeShapeListener struct {
@@ -59,7 +76,7 @@ func (t *TreeShapeListener) EnterAnnotation(ctx *parser.AnnotationContext) {
 	if ctx.QualifiedName() == nil {
 		return
 	}
-	if ctx.QualifiedName().GetText() == "Test" {
+	if ctx.QualifiedName().GetText() == "Test" || ctx.QualifiedName().GetText() == "ParameterizedTest" {
 		isTest = true
 	}
 
@@ -68,14 +85,26 @@ func (t *TreeShapeListener) EnterAnnotation(ctx *parser.AnnotationContext) {
 	}
 }
 
-func (t *TreeShapeListener) EnterMethodDeclaration(ctx *parser.MethodDeclarationContext) {
+// // EnterFormalParameters(ctx *parser.FormalParametersContext) {}
+// func (t *TreeShapeListener) EnterFormalParameterList(ctx *parser.FormalParameterListContext) {
+// 	formalParameter := ctx.AllFormalParameter()
+// 	for _, param := range formalParameter {
+// 		paramContext := param.(*parser.FormalParameterContext)
+// 		paramType := paramContext.TypeType().GetText()
+// 		paramValue := paramContext.VariableDeclaratorId().(*parser.VariableDeclaratorIdContext).Identifier().GetText()
+// 		fmt.Println(paramType, paramValue)
+// 	}
 
-	if isTest && !isIgnore {
+// }
+
+func (t *TreeShapeListener) EnterMethodDeclaration(ctx *parser.MethodDeclarationContext) {
+	if isTest {
 		startLine := ctx.GetStart().GetLine()
 		startLinePosition := ctx.GetStart().GetColumn()
 		stopLine := ctx.GetStop().GetLine()
 		stopLinePosition := ctx.GetStop().GetColumn()
 		name := ""
+		parameters := ctx.FormalParameters()
 
 		if ctx.Identifier() != nil {
 			name = ctx.Identifier().GetText()
@@ -91,6 +120,7 @@ func (t *TreeShapeListener) EnterMethodDeclaration(ctx *parser.MethodDeclaration
 			Name:       name,
 			ReturnType: typeType,
 			Position:   position,
+			Parameters: BuildMethodParameters(parameters),
 		}
 		if reflect.TypeOf(ctx.GetParent().GetParent()).String() == "*parser.ClassBodyDeclarationContext" {
 			bodyCtx := ctx.GetParent().GetParent().(*parser.ClassBodyDeclarationContext)
@@ -123,4 +153,26 @@ func main() {
 	fmt.Printf("Test Cases: %+v\n", testFunctions)
 	fmt.Printf("Total Executable Test Cases: %+v\n", len(testFunctions))
 
+}
+
+func BuildMethodParameters(parameters parser.IFormalParametersContext) []CodeProperty {
+	var methodParams []CodeProperty = nil
+	if parameters == nil {
+		return methodParams
+	}
+	parameterList, isParamList := parameters.GetChild(1).(*parser.FormalParameterListContext)
+	if !isParamList {
+		return methodParams
+	}
+	formalParameter := parameterList.AllFormalParameter()
+
+	for _, param := range formalParameter {
+		paramContext := param.(*parser.FormalParameterContext)
+		paramType := paramContext.TypeType().GetText()
+		paramValue := paramContext.VariableDeclaratorId().(*parser.VariableDeclaratorIdContext).Identifier().GetText()
+
+		parameter := NewCodeParameter(paramType, paramValue)
+		methodParams = append(methodParams, parameter)
+	}
+	return methodParams
 }
