@@ -42,9 +42,13 @@ var currentCreatorNode core_domain.CodeDataStruct
 var fileName = ""
 var hasEnterClass = false
 
-func NewJavaFullListener(file string) *JavaFullListener {
+var linesChanged []int
+var changedMethods = make(map[string]core_domain.CodeFunction)
+
+func NewJavaFullListener(file string, diffLines []int) *JavaFullListener {
 	imports = nil
 	fileName = file
+	linesChanged = diffLines
 	currentPkg = ""
 	classNodes = nil
 	currentNode = core_domain.NewDataStruct()
@@ -74,6 +78,10 @@ type JavaFullListener struct {
 
 func (s *JavaFullListener) GetNodeInfo() []core_domain.CodeDataStruct {
 	return classNodes
+}
+
+func (s *JavaFullListener) GetChangedMethods() map[string]core_domain.CodeFunction {
+	return changedMethods
 }
 
 func (s *JavaFullListener) ExitClassBody(ctx *parser.ClassBodyContext) {
@@ -150,15 +158,24 @@ func (s *JavaFullListener) EnterClassDeclaration(ctx *parser.ClassDeclarationCon
 		currentNode.Extend = buildExtend(currentClzExtend)
 	}
 
-	// if ctx.IMPLEMENTS() != nil {
-	// 	// types := ctx.TypeList().(*parser.TypeListContext).AllTypeType()
-	// 	// for _, typ := range types {
-	// 	// 	currentNode.Implements = append(currentNode.Implements, buildImplement(typ.GetText()))
-	// 	// }
-	// }
+	if ctx.IMPLEMENTS() != nil {
+		for _, typ := range ctx.AllTypeList() {
+			typeText := typ.GetText()
+			isImport := false
+			for _, imp := range imports {
+				if strings.HasSuffix(imp, "."+typeText) {
+					currentNode.Implements = append(currentNode.Implements, imp)
+					isImport = true
+				}
+			}
+			if !isImport {
+				currentNode.Implements = append(currentNode.Implements, typeText)
+			}
+		}
+
+	}
 
 	currentNode.Type = currentType
-	// TODO: Support for dependency injection
 }
 
 func (s *JavaFullListener) EnterFormalParameter(ctx *parser.FormalParameterContext) {
@@ -173,7 +190,6 @@ func (s *JavaFullListener) EnterFieldDeclaration(ctx *parser.FieldDeclarationCon
 		if typeType.GetChildCount() > 1 {
 			typeCtx = BuildTypeCtxByIndex(typeType, typeCtx, 1)
 		}
-
 		if typeCtx == nil {
 			continue
 		}
@@ -181,7 +197,15 @@ func (s *JavaFullListener) EnterFieldDeclaration(ctx *parser.FieldDeclarationCon
 		typeTypeText := typeCtx.Identifier(0).GetText()
 		value := declarator.(*parser.VariableDeclaratorContext).VariableDeclaratorId().(*parser.VariableDeclaratorIdContext).Identifier().GetText()
 		mapFields[value] = typeTypeText
-		field := core_domain.NewJField(typeTypeText, value, "")
+		bodyCtx := ctx.GetParent().GetParent().(*parser.ClassBodyDeclarationContext)
+		var modifiers []string
+		for _, modifier := range bodyCtx.AllModifier() {
+			if !strings.Contains(modifier.GetText(), "@") {
+				modifiers = append(modifiers, modifier.GetText())
+			}
+		}
+
+		field := core_domain.NewJField(typeTypeText, value, modifiers)
 		fields = append(fields, field)
 
 		buildFieldCall(typeTypeText, ctx)
@@ -267,7 +291,6 @@ func (s *JavaFullListener) EnterMethodDeclaration(ctx *parser.MethodDeclarationC
 	if reflect.TypeOf(ctx.GetParent().GetParent().GetChild(0)).String() == "*parser.ModifierContext" {
 		common_listener.BuildAnnotationForMethod(ctx.GetParent().GetParent().GetChild(0).(*parser.ModifierContext), &currentMethod)
 	}
-
 	// check, before your refactor
 	position := core_domain.CodePosition{
 		StartLine:         ctx.GetStart().GetLine(),
@@ -304,11 +327,19 @@ func (s *JavaFullListener) EnterMethodDeclaration(ctx *parser.MethodDeclarationC
 	}
 
 	parameters := ctx.FormalParameters()
-	if buildMethodParameters(parameters, method) {
-		return
-	}
+	buildMethodParameters(parameters, method)
+	// if buildMethodParameters(parameters, method) {
+	// 	return
+	// }
 
 	updateMethod(method)
+	for _, l := range linesChanged {
+		if l >= position.StartLine && l <= position.StopLine {
+			changedMethods[name] = *method
+			linesChanged = linesChanged[:len(linesChanged)-1]
+		}
+	}
+
 }
 
 func buildMethodParameters(parameters parser.IFormalParametersContext, method *core_domain.CodeFunction) bool {

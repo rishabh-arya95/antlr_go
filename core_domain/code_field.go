@@ -6,14 +6,14 @@ type CodeField struct {
 	Modifiers []string
 }
 
-func NewJField(typeType string, typeValue string, modifier string) CodeField {
+func NewJField(typeType string, typeValue string, modifier []string) CodeField {
 	property := CodeField{
 		TypeValue: typeValue,
 		TypeType:  typeType,
 	}
 
-	if modifier != "" {
-		property.Modifiers = append(property.Modifiers, modifier)
+	if len(modifier) > 0 {
+		property.Modifiers = modifier
 	}
 
 	return property
