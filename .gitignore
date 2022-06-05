@@ -1,3 +1,4 @@
 vendor
 ast.json
 changed_methods.json
+testDiscovery.json

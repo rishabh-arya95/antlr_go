@@ -138,6 +138,44 @@ func (s *JavaFullListener) EnterImportDeclaration(ctx *parser.ImportDeclarationC
 	currentNode.Imports = append(currentNode.Imports, core_domain.NewJImport(importText))
 }
 
+func (s *JavaFullListener) EnterInterfaceDeclaration(ctx *parser.InterfaceDeclarationContext) {
+	hasEnterClass = true
+	currentType = "Interface"
+	currentNode.NodeName = ctx.Identifier().GetText()
+
+	if ctx.EXTENDS() != nil {
+		types := ctx.AllTypeList()
+		for _, typ := range types {
+			currentNode.Extend = buildExtend(typ.GetText())
+		}
+	}
+
+	currentNode.Type = currentType
+}
+
+// func (s *JavaFullListener) EnterInterfaceMethodDeclaration(ctx *parser.InterfaceMethodDeclarationContext) {
+// }
+func (s *JavaFullListener) EnterInterfaceCommonBodyDeclaration(ctx *parser.InterfaceCommonBodyDeclarationContext) {
+	name := ctx.Identifier().GetText()
+	typeType := ctx.TypeTypeOrVoid().GetText()
+	position := BuildPosition(ctx.BaseParserRuleContext, name)
+	if reflect.TypeOf(ctx.GetParent().GetParent().GetParent().GetChild(0)).String() == "*parser.ModifierContext" {
+		common_listener.BuildAnnotationForMethod(ctx.GetParent().GetParent().GetParent().GetChild(0).(*parser.ModifierContext), &currentMethod)
+	}
+	method := &core_domain.CodeFunction{Name: name,
+		ReturnType:  typeType,
+		Annotations: currentMethod.Annotations,
+		Position:    position}
+	updateMethod(method)
+}
+
+// 	ExitInterfaceMethodDeclaration(c *InterfaceMethodDeclarationContext)
+
+func (s *JavaFullListener) ExitInterfaceBody(ctx *parser.InterfaceBodyContext) {
+	hasEnterClass = false
+	s.exitBody()
+}
+
 func (s *JavaFullListener) EnterClassDeclaration(ctx *parser.ClassDeclarationContext) {
 	if currentNode.NodeName != "" {
 		classNodeQueue = append(classNodeQueue, *currentNode)
@@ -305,7 +343,6 @@ func (s *JavaFullListener) EnterMethodDeclaration(ctx *parser.MethodDeclarationC
 	// 	StopLine:          ctx.GetStop().GetLine(),
 	// 	StopLinePosition:  ctx.Identifier().GetSymbol().GetColumn() + len(name),
 	// }
-	// fmt.Println(ctx.GetParent().GetParent().)
 
 	if reflect.TypeOf(ctx.GetParent().GetParent()).String() == "*parser.ClassBodyDeclarationContext" {
 		bodyCtx := ctx.GetParent().GetParent().(*parser.ClassBodyDeclarationContext)
