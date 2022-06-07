@@ -12,6 +12,7 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/rishabh-arya95/antlr_poc/ast_java"
 	"github.com/rishabh-arya95/antlr_poc/core_domain"
+
 	"github.com/rishabh-arya95/antlr_poc/parser"
 )
 
@@ -32,16 +33,17 @@ func main() {
 	// for _, h := range diff.Hunks {
 	// 	linesChanged = append(linesChanged, int(h.NewStartLine))
 	// }
+
 	t1 := time.Now()
 	repoDir := "/Users/rishabharya/Desktop/Projects/java/junit-java-example/"
 	// repoDir := "/Users/rishabharya/Desktop/Projects/logging-log4j2/"
 	// os.DirFS(global.RepoDir), strings.TrimSuffix(path, ext)+".{yml,yaml}"
-	files, err := doublestar.Glob(os.DirFS(repoDir), "**/src/**/ICalculator.java")
+	files, err := doublestar.Glob(os.DirFS(repoDir), "**/src/test/**/*.java")
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(time.Since(t1))
-
+	fmt.Println(len(files))
 	var nodeInfos = make([]core_domain.CodeDataStruct, 0, len(files))
 	// var testDiscovery = make([]custom_listener.TestCase, 0, len(files))
 	for _, file := range files {
@@ -56,18 +58,21 @@ func main() {
 		lexer := parser.NewJavaLexer(input)
 		stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 		p := parser.NewJavaParser(stream)
+		p.BuildParseTrees = true
 		tree := p.CompilationUnit()
 		jListener := ast_java.NewJavaFullListener(file, []int{})
 		// jListener := custom_listener.NewCustomListener(file)
-		w := NewIterativeParseTreeWalker()
-		w.Walk(jListener, tree)
+		// w := NewIterativeParseTreeWalker()
+		// w.Walk(jListener, tree)
+		antlr.NewParseTreeWalker().Walk(jListener, tree)
 		nodeInfos = append(nodeInfos, jListener.GetNodeInfo()...)
-		// // antlr.NewParseTreeWalker().Walk(jListener, tree)
-		// testDiscovery = append(testDiscovery, jListener.GetTestCases()...)
-
+		jListener.GetCallGraph().String()
 	}
+
 	fmt.Println(time.Since(t1))
 	fmt.Println(len(nodeInfos))
+	fmt.Println(len(files))
+
 	identModel, _ := json.MarshalIndent(nodeInfos, "", "\t")
 	ioutil.WriteFile("testDiscovery.json", []byte(identModel), 0644)
 	fmt.Println(time.Since(t1))

@@ -41,7 +41,7 @@ func BuildMethodCallMethod(jMethodCall *core_domain.CodeCall, callee string, tar
 		targetType, packageName = HandleEmptyFullType(ctx, targetType, methodName, packageName)
 	}
 
-	// TODO: 处理链试调用
+	// TODO: Handle chain test calls
 	// for normal builder chain call
 	if isChainCall(targetType) {
 		split := strings.Split(targetType, ".")

@@ -7,6 +7,7 @@ import (
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/rishabh-arya95/antlr_poc/ast_java/common_listener"
+	"github.com/rishabh-arya95/antlr_poc/callgraph"
 	"github.com/rishabh-arya95/antlr_poc/core_domain"
 	"github.com/rishabh-arya95/antlr_poc/parser"
 )
@@ -41,9 +42,10 @@ var classNodes []core_domain.CodeDataStruct
 var currentCreatorNode core_domain.CodeDataStruct
 var fileName = ""
 var hasEnterClass = false
-
+var graph callgraph.ItemGraph
 var linesChanged []int
 var changedMethods = make(map[string]core_domain.CodeFunction)
+var currentCallGraphNode callgraph.Node
 
 func NewJavaFullListener(file string, diffLines []int) *JavaFullListener {
 	imports = nil
@@ -55,6 +57,7 @@ func NewJavaFullListener(file string, diffLines []int) *JavaFullListener {
 	classStringQueue = nil
 	classNodeQueue = nil
 	methodQueue = nil
+	graph = callgraph.ItemGraph{}
 
 	initClass()
 	return &JavaFullListener{}
@@ -78,6 +81,9 @@ type JavaFullListener struct {
 
 func (s *JavaFullListener) GetNodeInfo() []core_domain.CodeDataStruct {
 	return classNodes
+}
+func (s *JavaFullListener) GetCallGraph() *callgraph.ItemGraph {
+	return &graph
 }
 
 func (s *JavaFullListener) GetChangedMethods() map[string]core_domain.CodeFunction {
@@ -376,6 +382,12 @@ func (s *JavaFullListener) EnterMethodDeclaration(ctx *parser.MethodDeclarationC
 			linesChanged = linesChanged[:len(linesChanged)-1]
 		}
 	}
+	cgNode := callgraph.Node{FunctionName: name,
+		ReturnType: typeType,
+		Package:    currentPkg,
+	}
+	currentCallGraphNode = cgNode
+	graph.AddNode(&cgNode)
 
 }
 
@@ -546,6 +558,14 @@ func (s *JavaFullListener) EnterMethodCall(ctx *parser.MethodCallContext) {
 	BuildMethodCallParameters(&jMethodCall, ctx)
 
 	sendResultToMethodCallMap(jMethodCall)
+	cgNode := currentCallGraphNode
+	graph.AddEdge(&cgNode, &callgraph.Node{
+		FunctionName: jMethodCall.FunctionName,
+		Package:      jMethodCall.Package,
+		ReturnType:   jMethodCall.Type,
+		NodeName:     jMethodCall.NodeName,
+	})
+
 }
 
 func sendResultToMethodCallMap(jMethodCall core_domain.CodeCall) {
