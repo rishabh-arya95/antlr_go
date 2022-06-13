@@ -13,3 +13,10 @@ func NewJImport(str string) CodeImport {
 		Source: str,
 	}
 }
+
+func NewGoImport(src, alias string) CodeImport {
+	return CodeImport{
+		Source: src,
+		AsName: alias,
+	}
+}

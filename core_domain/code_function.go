@@ -10,6 +10,7 @@ type CodeFunction struct {
 	ReturnType      string
 	MultipleReturns []CodeProperty
 	Parameters      []CodeProperty
+	Receiver        CodeProperty
 	FunctionCalls   []CodeCall
 	Override        bool
 	Annotations     []CodeAnnotation

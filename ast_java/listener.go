@@ -47,7 +47,7 @@ var linesChanged []int
 var changedMethods = make(map[string]core_domain.CodeFunction)
 var currentCallGraphNode callgraph.Node
 
-func NewJavaFullListener(file string, diffLines []int) *JavaFullListener {
+func NewJavaFullListener(file string, diffLines []int) (jl *JavaFullListener) {
 	imports = nil
 	fileName = file
 	linesChanged = diffLines
@@ -647,7 +647,20 @@ func buildFieldCall(typeType string, ctx *parser.FieldDeclarationContext) {
 	}
 }
 
-func buildImplement(text string) string {
+func buildImplement(text string) (name string, err error) {
+	var new string
+	_ = new
+	target, alpha := WarpTargetFullType(text)
+	alpha, new = target, alpha
+	return target, nil
+}
+
+func buildImplement2(text string) (string, error) {
 	target, _ := WarpTargetFullType(text)
-	return target
+	return target, nil
+}
+
+func buildImplement3(text string) (string, error) {
+	WarpTargetFullType(text)
+	return "", nil
 }
